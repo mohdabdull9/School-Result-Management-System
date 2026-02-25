@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Primary School Results Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; }
+            .page-break { page-break-after: always; }
+            @page { size: A4; margin: 1cm; }
+        }
+        .print-only { display: none; }
+        .student-rank-badge { 
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [activeSheet, setActiveSheet] = useState('dashboard');
+            const [schoolInfo, setSchoolInfo] = useState(() => {
+                const saved = localStorage.getItem('schoolInfo');
+                return saved ? JSON.parse(saved) : {
+                    name: 'ABC Primary School',
+                    address: '123 School Street, City',
+                    phone: '+255 123 456 789',
+                    email: 'info@abcschool.ac.tz',
+                    motto: 'Excellence in Education',
+                    academicYear: '2025/2026',
+                    term: 'Term 1',
+                    logo: ''
+                };
+            });
+
+            const [students, setStudents] = useState(() => {
+                const saved = localStorage.getItem('students');
+                return saved ? JSON.parse(saved) : [
+                    { id: 1, regNo: 'PS001', name: 'John Mwamba', grade: 1, section: 'A', gender: 'M', dob: '2017-05-15' },
+                    { id: 2, regNo: 'PS002', name: 'Mary Ndege', grade: 1, section: 'A', gender: 'F', dob: '2017-08-22' },
+                    { id: 3, regNo: 'PS003', name: 'Peter Ally', grade: 2, section: 'A', gender: 'M', dob: '2016-03-10' },
+                ];
+            });
+
+            const [gradeSubjects, setGradeSubjects] = useState(() => {
+                const saved = localStorage.getItem('gradeSubjects');
+                return saved ? JSON.parse(saved) : {
+                    1: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies'],
+                    2: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies'],
+                    3: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies'],
+                    4: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies', 'Civics'],
+                    5: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies', 'Civics'],
+                    6: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies', 'Civics', 'ICT'],
+                    7: ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies', 'Civics', 'ICT']
+                };
+            });
+
+            const [gradingScales, setGradingScales] = useState(() => {
+                const saved = localStorage.getItem('gradingScales');
+                return saved ? JSON.parse(saved) : {
+                    lower: [
+                        { grade: 'A', min: 80, max: 100, description: 'Excellent' },
+                        { grade: 'B', min: 65, max: 79, description: 'Very Good' },
+                        { grade: 'C', min: 50, max: 64, description: 'Good' },
+                        { grade: 'D', min: 35, max: 49, description: 'Satisfactory' },
+                        { grade: 'F', min: 0, max: 34, description: 'Needs Improvement' }
+                    ],
+                    upper: [
+                        { grade: 'A', min: 80, max: 100, description: 'Excellent' },
+                        { grade: 'B', min: 70, max: 79, description: 'Very Good' },
+                        { grade: 'C', min: 60, max: 69, description: 'Good' },
+                        { grade: 'D', min: 50, max: 59, description: 'Satisfactory' },
+                        { grade: 'E', min: 40, max: 49, description: 'Pass' },
+                        { grade: 'F', min: 0, max: 39, description: 'Fail' }
+                    ]
+                };
+            });
+
+            const [results, setResults] = useState(() => {
+                const saved = localStorage.getItem('results');
+                return saved ? JSON.parse(saved) : {
+                    1: [
+                        { studentId: 1, regNo: 'PS001', subjects: { 'English': 85, 'Kiswahili': 78, 'Mathematics': 90, 'Science': 82, 'Social Studies': 75 } },
+                        { studentId: 2, regNo: 'PS002', subjects: { 'English': 92, 'Kiswahili': 88, 'Mathematics': 85, 'Science': 90, 'Social Studies': 87 } }
+                    ],
+                    2: [{ studentId: 3, regNo: 'PS003', subjects: { 'English': 76, 'Kiswahili': 82, 'Mathematics': 79, 'Science': 80, 'Social Studies': 78 } }],
+                    3: [], 4: [], 5: [], 6: [], 7: []
+                };
+            });
+
+            const [editingSchoolInfo, setEditingSchoolInfo] = useState(false);
+            const [newStudent, setNewStudent] = useState(null);
+            const [editingSubjects, setEditingSubjects] = useState(null);
+            const [newSubject, setNewSubject] = useState('');
+            const [printingStudent, setPrintingStudent] = useState(null);
+
+            // Save to localStorage whenever data changes
+            useEffect(() => {
+                localStorage.setItem('schoolInfo', JSON.stringify(schoolInfo));
+            }, [schoolInfo]);
+
+            useEffect(() => {
+                localStorage.setItem('students', JSON.stringify(students));
+            }, [students]);
+
+            useEffect(() => {
+                localStorage.setItem('gradeSubjects', JSON.stringify(gradeSubjects));
+            }, [gradeSubjects]);
+
+            useEffect(() => {
+                localStorage.setItem('gradingScales', JSON.stringify(gradingScales));
+            }, [gradingScales]);
+
+            useEffect(() => {
+                localStorage.setItem('results', JSON.stringify(results));
+            }, [results]);
+
+            const handleLogoUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setSchoolInfo({ ...schoolInfo, logo: reader.result });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const exportData = () => {
+                const data = {
+                    schoolInfo,
+                    students,
+                    gradeSubjects,
+                    gradingScales,
+                    results,
+                    exportDate: new Date().toISOString()
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `school-data-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            };
+
+            const importData = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            if (data.schoolInfo) setSchoolInfo(data.schoolInfo);
+                            if (data.students) setStudents(data.students);
+                            if (data.gradeSubjects) setGradeSubjects(data.gradeSubjects);
+                            if (data.gradingScales) setGradingScales(data.gradingScales);
+                            if (data.results) setResults(data.results);
+                            alert('Data imported successfully!');
+                        } catch (err) {
+                            alert('Error importing data. Please check the file.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const getGradeScale = (gradeNum) => gradeNum <= 3 ? gradingScales.lower : gradingScales.upper;
+
+            const getGrade = (marks, gradeNum) => {
+                const scale = getGradeScale(gradeNum);
+                for (let i = 0; i < scale.length; i++) {
+                    if (marks >= scale[i].min && marks <= scale[i].max) return scale[i].grade;
+                }
+                return 'F';
+            };
+
+            const getGradeColor = (grade) => {
+                const colors = {
+                    'A': 'bg-green-100 text-green-800 border-green-300',
+                    'B': 'bg-blue-100 text-blue-800 border-blue-300',
+                    'C': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                    'D': 'bg-orange-100 text-orange-800 border-orange-300',
+                    'E': 'bg-red-100 text-red-800 border-red-300',
+                    'F': 'bg-red-200 text-red-900 border-red-400'
+                };
+                return colors[grade] || 'bg-gray-100 text-gray-800';
+            };
+
+            const calculateAverage = (subjectMarks) => {
+                const marks = Object.values(subjectMarks).filter(m => m > 0);
+                return marks.length > 0 ? (marks.reduce((a, b) => a + b, 0) / marks.length).toFixed(1) : 0;
+            };
+
+            const getStudentResults = (gradeNum) => {
+                return (results[gradeNum] || []).map(result => {
+                    const student = students.find(s => s.id === result.studentId);
+                    const avg = parseFloat(calculateAverage(result.subjects));
+                    return {
+                        ...result,
+                        studentName: student?.name || 'Unknown',
+                        average: avg,
+                        grade: getGrade(avg, gradeNum),
+                        total: Object.values(result.subjects).reduce((a, b) => a + b, 0)
+                    };
+                }).sort((a, b) => b.average - a.average).map((r, idx) => ({ ...r, rank: idx + 1 }));
+            };
+
+            const getTop10Students = (gradeNum) => {
+                return getStudentResults(gradeNum).slice(0, 10);
+            };
+
+            const addStudent = () => {
+                setNewStudent({
+                    regNo: `PS${String(students.length + 1).padStart(3, '0')}`,
+                    name: '', grade: 1, section: 'A', gender: 'M', dob: ''
+                });
+            };
+
+            const saveStudent = () => {
+                if (newStudent && newStudent.name && newStudent.dob) {
+                    setStudents([...students, { ...newStudent, id: Date.now() }]);
+                    setNewStudent(null);
+                }
+            };
+
+            const deleteStudent = (id) => {
+                if (window.confirm('Delete this student?')) {
+                    setStudents(students.filter(s => s.id !== id));
+                }
+            };
+
+            const updateMarks = (gradeNum, studentId, subject, marks) => {
+                const gradeResults = results[gradeNum] || [];
+                const studentIndex = gradeResults.findIndex(r => r.studentId === studentId);
+                
+                if (studentIndex >= 0) {
+                    const updated = [...gradeResults];
+                    updated[studentIndex].subjects[subject] = parseInt(marks) || 0;
+                    setResults({ ...results, [gradeNum]: updated });
+                } else {
+                    const student = students.find(s => s.id === studentId);
+                    if (student) {
+                        const subjects = gradeSubjects[gradeNum];
+                        const newResult = {
+                            studentId, regNo: student.regNo,
+                            subjects: subjects.reduce((acc, s) => ({ ...acc, [s]: s === subject ? (parseInt(marks) || 0) : 0 }), {})
+                        };
+                        setResults({ ...results, [gradeNum]: [...gradeResults, newResult] });
+                    }
+                }
+            };
+
+            const printStudentReport = (gradeNum, studentId) => {
+                const student = students.find(s => s.id === studentId);
+                const result = getStudentResults(gradeNum).find(r => r.studentId === studentId);
+                if (student && result) {
+                    setPrintingStudent({ ...student, ...result, gradeNum });
+                    setTimeout(() => window.print(), 100);
+                }
+            };
+
+            const printGradeSheet = () => {
+                setTimeout(() => window.print(), 100);
+            };
+
+            const addSubjectToGrade = (gradeNum) => {
+                if (newSubject.trim()) {
+                    setGradeSubjects({ ...gradeSubjects, [gradeNum]: [...gradeSubjects[gradeNum], newSubject.trim()] });
+                    setNewSubject('');
+                }
+            };
+
+            const removeSubjectFromGrade = (gradeNum, subject) => {
+                if (window.confirm(`Remove ${subject}?`)) {
+                    setGradeSubjects({ ...gradeSubjects, [gradeNum]: gradeSubjects[gradeNum].filter(s => s !== subject) });
+                }
+            };
+
+            const updateGradingScale = (level, index, field, value) => {
+                const updated = [...gradingScales[level]];
+                updated[index][field] = field === 'grade' || field === 'description' ? value : parseInt(value);
+                setGradingScales({ ...gradingScales, [level]: updated });
+            };
+
+            const addGradeToScale = (level) => {
+                setGradingScales({ ...gradingScales, [level]: [...gradingScales[level], { grade: '', min: 0, max: 0, description: '' }] });
+            };
+
+            const removeGradeFromScale = (level, index) => {
+                setGradingScales({ ...gradingScales, [level]: gradingScales[level].filter((_, i) => i !== index) });
+            };
+
+            const getStatistics = () => {
+                const totalStudents = students.length;
+                const gradeDistribution = {};
+                for (let i = 1; i <= 7; i++) gradeDistribution[i] = students.filter(s => s.grade === i).length;
+                
+                let totalWithResults = 0, totalAverage = 0;
+                Object.values(results).forEach(gradeResults => {
+                    gradeResults.forEach(result => {
+                        const avg = calculateAverage(result.subjects);
+                        if (avg > 0) { totalWithResults++; totalAverage += parseFloat(avg); }
+                    });
+                });
+
+                return {
+                    totalStudents, gradeDistribution,
+                    averagePerformance: totalWithResults > 0 ? (totalAverage / totalWithResults).toFixed(1) : 0,
+                    studentsWithResults: totalWithResults
+                };
+            };
+
+            const stats = getStatistics();
+
+            if (printingStudent) {
+                const subjects = gradeSubjects[printingStudent.gradeNum];
+                return (
+                    <div className="print-only p-8 bg-white" style={{ width: '210mm', minHeight: '297mm' }}>
+                        <div className="text-center mb-6 border-b-4 border-blue-600 pb-4">
+                            {schoolInfo.logo && (
+                                <img src={schoolInfo.logo} alt="School Logo" className="h-24 mx-auto mb-3" />
+                            )}
+                            <h1 className="text-3xl font-bold text-gray-800">{schoolInfo.name}</h1>
+                            <p className="text-sm text-gray-600">{schoolInfo.address}</p>
+                            <p className="text-sm text-gray-600">{schoolInfo.phone} | {schoolInfo.email}</p>
+                            <p className="text-lg font-semibold mt-2 text-blue-600">{schoolInfo.motto}</p>
+                            <div className="mt-3 text-sm">
+                                <span className="font-semibold">{schoolInfo.academicYear}</span> • <span className="font-semibold">{schoolInfo.term}</span>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 bg-gray-50 p-4 rounded border-2 border-gray-300">
+                            <h2 className="text-2xl font-bold text-center mb-4 text-blue-700">STUDENT REPORT CARD</h2>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div><span className="font-semibold">Student Name:</span> {printingStudent.studentName}</div>
+                                <div><span className="font-semibold">Registration No:</span> {printingStudent.regNo}</div>
+                                <div><span className="font-semibold">Grade:</span> {printingStudent.gradeNum}</div>
+                                <div><span className="font-semibold">Section:</span> {printingStudent.section}</div>
+                                <div><span className="font-semibold">Class Position:</span> <span className="font-bold text-lg text-blue-600">{printingStudent.rank}</span></div>
+                                <div><span className="font-semibold">Date of Birth:</span> {printingStudent.dob}</div>
+                            </div>
+                        </div>
+
+                        <table className="w-full border-collapse mb-6">
+                            <thead>
+                                <tr className="bg-blue-600 text-white">
+                                    <th className="border-2 border-gray-400 p-3 text-left">Subject</th>
+                                    <th className="border-2 border-gray-400 p-3 text-center">Marks (Out of 100)</th>
+                                    <th className="border-2 border-gray-400 p-3 text-center">Grade</th>
+                                    <th className="border-2 border-gray-400 p-3 text-left">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {subjects.map(subject => {
+                                    const mark = printingStudent.subjects[subject];
+                                    const subjectGrade = getGrade(mark, printingStudent.gradeNum);
+                                    const scale = getGradeScale(printingStudent.gradeNum);
+                                    const remarks = scale.find(s => s.grade === subjectGrade)?.description || '';
+                                    return (
+                                        <tr key={subject}>
+                                            <td className="border-2 border-gray-400 p-3 font-semibold">{subject}</td>
+                                            <td className="border-2 border-gray-400 p-3 text-center font-bold text-lg">{mark}</td>
+                                            <td className="border-2 border-gray-400 p-3 text-center">
+                                                <span className={`px-3 py-1 rounded font-bold ${getGradeColor(subjectGrade)}`}>
+                                                    {subjectGrade}
+                                                </span>
+                                            </td>
+                                            <td className="border-2 border-gray-400 p-3">{remarks}</td>
+                                        </tr>
+                                    );
+                                })}
+                                <tr className="bg-yellow-50 font-bold">
+                                    <td className="border-2 border-gray-400 p-3">TOTAL MARKS</td>
+                                    <td className="border-2 border-gray-400 p-3 text-center text-xl">{printingStudent.total}</td>
+                                    <td className="border-2 border-gray-400 p-3"></td>
+                                    <td className="border-2 border-gray-400 p-3"></td>
+                                </tr>
+                                <tr className="bg-blue-50 font-bold">
+                                    <td className="border-2 border-gray-400 p-3">AVERAGE</td>
+                                    <td className="border-2 border-gray-400 p-3 text-center text-xl">{printingStudent.average}%</td>
+                                    <td className="border-2 border-gray-400 p-3 text-center">
+                                        <span className={`px-4 py-2 rounded-lg font-bold text-xl ${getGradeColor(printingStudent.grade)}`}>
+                                            {printingStudent.grade}
+                                        </span>
+                                    </td>
+                                    <td className="border-2 border-gray-400 p-3">
+                                        {getGradeScale(printingStudent.gradeNum).find(s => s.grade === printingStudent.grade)?.description}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div className="mb-6 p-4 bg-gray-50 border-2 border-gray-300 rounded">
+                            <h3 className="font-bold mb-2">Grading Scale ({printingStudent.gradeNum <= 3 ? 'Lower' : 'Upper'} Primary):</h3>
+                            <div className="grid grid-cols-3 gap-2 text-sm">
+                                {getGradeScale(printingStudent.gradeNum).map(s => (
+                                    <div key={s.grade} className="flex items-center gap-2">
+                                        <span className={`px-2 py-1 rounded font-bold ${getGradeColor(s.grade)}`}>{s.grade}</span>
+                                        <span>{s.min}-{s.max}% ({s.description})</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 grid grid-cols-2 gap-8">
+                            <div>
+                                <p className="mb-2">Class Teacher's Signature:</p>
+                                <div className="border-b-2 border-gray-400 h-12"></div>
+                            </div>
+                            <div>
+                                <p className="mb-2">Head Teacher's Signature:</p>
+                                <div className="border-b-2 border-gray-400 h-12"></div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 text-center text-sm text-gray-600">
+                            <p>Printed on: {new Date().toLocaleDateString()}</p>
+                        </div>
+
+                        <button onClick={() => setPrintingStudent(null)} className="no-print fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-red-700">
+                            Close Print Preview
+                        </button>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-100">
+                    <div className="no-print bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div>
+                                <h1 className="text-3xl font-bold mb-2">Primary School Results Management System</h1>
+                                <p className="text-blue-100">Complete solution with data export/import</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={exportData} className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-semibold flex items-center gap-2">
+                                    📥 Export Data
+                                </button>
+                                <label className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-semibold cursor-pointer flex items-center gap-2">
+                                    📤 Import Data
+                                    <input type="file" accept=".json" onChange={importData} className="hidden" />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto">
+                        <div className="no-print flex flex-wrap gap-2 p-4 bg-white shadow-md">
+                            {[
+                                { id: 'dashboard', label: '📊 Dashboard' },
+                                { id: 'registration', label: '👥 Registration' },
+                                { id: 'subjects', label: '📚 Subjects' },
+                                { id: 'grading', label: '🎓 Grading' },
+                                ...Array.from({length: 7}, (_, i) => ({ id: `grade${i+1}`, label: `📝 Grade ${i+1}` }))
+                            ].map(tab => (
+                                <button key={tab.id} onClick={() => setActiveSheet(tab.id)}
+                                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                        activeSheet === tab.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}>
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="bg-white min-h-screen p-6">
+                            {activeSheet === 'dashboard' && (
+                                <div className="space-y-6">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            {schoolInfo.logo && <img src={schoolInfo.logo} alt="Logo" className="h-20 mb-3" />}
+                                            <h2 className="text-3xl font-bold text-gray-800">{schoolInfo.name}</h2>
+                                            <p className="text-gray-600">{schoolInfo.motto}</p>
+                                            <p className="text-sm text-gray-500">{schoolInfo.academicYear} • {schoolInfo.term}</p>
+                                        </div>
+                                        <button onClick={() => setEditingSchoolInfo(!editingSchoolInfo)}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                            {editingSchoolInfo ? '✖ Cancel' : '⚙️ Edit Info'}
+                                        </button>
+                                    </div>
+
+                                    {editingSchoolInfo && (
+                                        <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+                                            <div className="mb-4">
+                                                <label className="block text-sm font-medium mb-2">School Logo:</label>
+                                                <input type="file" accept="image/*" onChange={handleLogoUpload}
+                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
+                                                {schoolInfo.logo && (
+                                                    <div className="mt-2">
+                                                        <img src={schoolInfo.logo} alt="Preview" className="h-24 border-2 border-gray-300 rounded" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {Object.keys(schoolInfo).filter(k => k !== 'logo').map(key => (
+                                                    <div key={key}>
+                                                        <label className="block text-sm font-medium mb-1 capitalize">
+                                                            {key.replace(/([A-Z])/g, ' $1')}
+                                                        </label>
+                                                        <input type="text" value={schoolInfo[key]}
+                                                            onChange={(e) => setSchoolInfo({ ...schoolInfo, [key]: e.target.value })}
+                                                            className="w-full p-2 border rounded" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        {[
+                                            { title: 'Total Students', value: stats.totalStudents, color: 'blue', icon: '👥' },
+                                            { title: 'With Results', value: stats.studentsWithResults, color: 'green', icon: '📝' },
+                                            { title: 'Avg Performance', value: `${stats.averagePerformance}%`, color: 'purple', icon: '📊' },
+                                            { title: 'Grade Levels', value: '7', color: 'orange', icon: '🎓' }
+                                        ].map((stat, idx) => (
+                                            <div key={idx} className={`bg-gradient-to-br from-${stat.color}-500 to-${stat.color}-600 text-white p-6 rounded-xl shadow-lg`}>
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-sm opacity-90">{stat.title}</p>
+                                                        <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                                                    </div>
+                                                    <span className="text-4xl">{stat.icon}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-white p-6 rounded-xl shadow-lg border">
+                                            <h3 className="text-xl font-bold mb-4">Students by Grade</h3>
+                                            <div className="space-y-3">
+                                                {[1,2,3,4,5,6,7].map(grade => (
+                                                    <div key={grade} className="flex items-center justify-between">
+                                                        <span className="font-medium">Grade {grade}</span>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-48 bg-gray-200 rounded-full h-3">
+                                                                <div className="bg-blue-500 h-3 rounded-full transition-all"
+                                                                    style={{ width: `${(stats.gradeDistribution[grade] / stats.totalStudents * 100) || 0}%` }} />
+                                                            </div>
+                                                            <span className="font-bold w-8 text-right">{stats.gradeDistribution[grade] || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-xl shadow-lg border">
+                                            <h3 className="text-xl font-bold mb-4">Quick Actions</h3>
+                                            <div className="space-y-3">
+                                                {[
+                                                    { label: 'Register Student', icon: '👥', sheet: 'registration', color: 'blue' },
+                                                    { label: 'Configure Subjects', icon: '📚', sheet: 'subjects', color: 'indigo' },
+                                                    { label: 'Grading Scales', icon: '🎓', sheet: 'grading', color: 'amber' },
+                                                    { label: 'Enter Results', icon: '📝', sheet: 'grade1', color: 'green' }
+                                                ].map((action, idx) => (
+                                                    <button key={idx} onClick={() => setActiveSheet(action.sheet)}
+                                                        className={`w-full flex items-center gap-3 p-4 bg-${action.color}-50 hover:bg-${action.color}-100 rounded-lg transition-colors text-left`}>
+                                                        <span className="text-2xl">{action.icon}</span>
+                                                        <span className="font-semibold">{action.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeSheet === 'registration' && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold">Student Registration</h2>
+                                        <button onClick={addStudent}
+                                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-semibold">
+                                            ➕ Add Student
+                                        </button>
+                                    </div>
+
+                                    {newStudent && (
+                                        <div className="bg-green-50 p-6 rounded-lg mb-6 border-2 border-green-200">
+                                            <h3 className="font-bold mb-4">New Student Registration</h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                <div><label className="block text-sm font-medium mb-1">Reg No.</label>
+                                                    <input type="text" value={newStudent.regNo}
+                                                        onChange={(e) => setNewStudent({ ...newStudent, regNo: e.target.value })}
+                                                        className="w-full p-2 border rounded" /></div>
+                                                <div><label className="block text-sm font-medium mb-1">Full Name *</label>
+                                                    <input type="text" value={newStudent.name}
+                                                        onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                                                        className="w-full p-2 border rounded" placeholder="Enter name" /></div>
+                                                <div><label className="block text-sm font-medium mb-1">Grade</label>
+                                                    <select value={newStudent.grade}
+                                                        onChange={(e) => setNewStudent({ ...newStudent, grade: parseInt(e.target.value) })}
+                                                        className="w-full p-2 border rounded">
+                                                        {[1,2,3,4,5,6,7].map(g => <option key={g} value={g}>Grade {g}</option>)}
+                                                    </select></div>
+                                                <div><label className="block text-sm font-medium mb-1">Section</label>
+                                                    <select value={newStudent.section}
+                                                        onChange={(e) => setNewStudent({ ...newStudent, section: e.target.value })}
+                                                        className="w-full p-2 border rounded">
+                                                        {['A','B','C'].map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select></div>
+                                                <div><label className="block text-sm font-medium mb-1">Gender</label>
+                                                    <select value={newStudent.gender}
+                                                        onChange={(e) => setNewStudent({ ...newStudent, gender: e.target.value })}
+                                                        className="w-full p-2 border rounded">
+                                                        <option value="M">Male</option><option value="F">Female</option>
+                                                    </select></div>
+                                                <div><label className="block text-sm font-medium mb-1">Date of Birth *</label>
+                                                    <input type="date" value={newStudent.dob}
+                                                        onChange={(e) => setNewStudent({ ...newStudent, dob: e.target.value })}
+                                                        className="w-full p-2 border rounded" /></div>
+                                            </div>
+                                            <div className="flex gap-2 mt-4">
+                                                <button onClick={saveStudent}
+                                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold">
+                                                    💾 Save
+                                                </button>
+                                                <button onClick={() => setNewStudent(null)}
+                                                    className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 font-semibold">
+                                                    ✖ Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-white rounded-xl shadow-lg border overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-800 text-white">
+                                                <tr>
+                                                    {['Reg No', 'Student Name', 'Grade', 'Section', 'Gender', 'DOB', 'Actions'].map(h => (
+                                                        <th key={h} className="p-3 text-left">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {students.map((s, idx) => (
+                                                    <tr key={s.id} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                                                        <td className="p-3 font-mono">{s.regNo}</td>
+                                                        <td className="p-3 font-medium">{s.name}</td>
+                                                        <td className="p-3">{s.grade}</td>
+                                                        <td className="p-3">{s.section}</td>
+                                                        <td className="p-3">{s.gender}</td>
+                                                        <td className="p-3">{s.dob}</td>
+                                                        <td className="p-3">
+                                                            <button onClick={() => deleteStudent(s.id)}
+                                                                className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 font-semibold">
+                                                                🗑️ Delete
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeSheet === 'subjects' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-2">Subject Configuration</h2>
+                                    <p className="text-gray-600 mb-6">Manage subjects for each grade level</p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {[1,2,3,4,5,6,7].map(grade => (
+                                            <div key={grade} className="bg-white p-6 rounded-xl shadow-lg border">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h3 className="text-xl font-bold">Grade {grade}</h3>
+                                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${grade <= 3 ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                                        {grade <= 3 ? 'Lower' : 'Upper'} Primary
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-2 mb-4">
+                                                    {gradeSubjects[grade].map((subject, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                                                            <span className="font-medium">{subject}</span>
+                                                            <button onClick={() => removeSubjectFromGrade(grade, subject)}
+                                                                className="text-red-600 hover:bg-red-50 px-2 py-1 rounded font-semibold">
+                                                                🗑️
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {editingSubjects === grade ? (
+                                                    <div className="flex gap-2">
+                                                        <input type="text" value={newSubject}
+                                                            onChange={(e) => setNewSubject(e.target.value)}
+                                                            placeholder="Subject name" className="flex-1 p-2 border rounded"
+                                                            onKeyPress={(e) => e.key === 'Enter' && addSubjectToGrade(grade)} />
+                                                        <button onClick={() => addSubjectToGrade(grade)}
+                                                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold">
+                                                            💾
+                                                        </button>
+                                                        <button onClick={() => { setEditingSubjects(null); setNewSubject(''); }}
+                                                            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 font-semibold">
+                                                            ✖
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setEditingSubjects(grade)}
+                                                        className="w-full p-2 border-2 border-dashed rounded hover:border-blue-500 hover:bg-blue-50 font-semibold">
+                                                        ➕ Add Subject
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeSheet === 'grading' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-2">Grading Scale Configuration</h2>
+                                    <p className="text-gray-600 mb-6">Set grading for Lower Primary (1-3) and Upper Primary (4-7)</p>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {['lower', 'upper'].map(level => (
+                                            <div key={level} className={`bg-white p-6 rounded-xl shadow-lg border-2 ${level === 'lower' ? 'border-blue-200' : 'border-green-200'}`}>
+                                                <div className="flex items-center gap-3 mb-6">
+                                                    <div className={`p-3 rounded-lg ${level === 'lower' ? 'bg-blue-100' : 'bg-green-100'}`}>
+                                                        <span className="text-2xl">🎓</span>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-xl font-bold">{level === 'lower' ? 'Lower' : 'Upper'} Primary</h3>
+                                                        <p className="text-sm text-gray-600">Grades {level === 'lower' ? '1-3' : '4-7'}</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {gradingScales[level].map((scale, idx) => (
+                                                        <div key={idx} className={`p-4 rounded-lg ${level === 'lower' ? 'bg-blue-50' : 'bg-green-50'}`}>
+                                                            <div className="grid grid-cols-4 gap-3 mb-2">
+                                                                <div>
+                                                                    <label className="block text-xs font-medium mb-1">Grade</label>
+                                                                    <input type="text" value={scale.grade} maxLength={2}
+                                                                        onChange={(e) => updateGradingScale(level, idx, 'grade', e.target.value)}
+                                                                        className="w-full p-2 border rounded text-center font-bold" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-medium mb-1">Min %</label>
+                                                                    <input type="number" value={scale.min} min={0} max={100}
+                                                                        onChange={(e) => updateGradingScale(level, idx, 'min', e.target.value)}
+                                                                        className="w-full p-2 border rounded text-center" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-medium mb-1">Max %</label>
+                                                                    <input type="number" value={scale.max} min={0} max={100}
+                                                                        onChange={(e) => updateGradingScale(level, idx, 'max', e.target.value)}
+                                                                        className="w-full p-2 border rounded text-center" />
+                                                                </div>
+                                                                <div className="flex items-end">
+                                                                    <button onClick={() => removeGradeFromScale(level, idx)}
+                                                                        className="w-full p-2 text-red-600 hover:bg-red-100 rounded font-semibold">
+                                                                        🗑️
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium mb-1">Description</label>
+                                                                <input type="text" value={scale.description}
+                                                                    onChange={(e) => updateGradingScale(level, idx, 'description', e.target.value)}
+                                                                    className="w-full p-2 border rounded" placeholder="e.g., Excellent" />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <button onClick={() => addGradeToScale(level)}
+                                                    className={`w-full mt-4 p-3 border-2 border-dashed rounded hover:bg-${level === 'lower' ? 'blue' : 'green'}-50 font-semibold`}>
+                                                    ➕ Add Grade Level
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {[1,2,3,4,5,6,7].map(gradeNum => activeSheet === `grade${gradeNum}` && (
+                                <div key={gradeNum}>
+                                    <div className="mb-6 flex justify-between items-center">
+                                        <div>
+                                            <h2 className="text-2xl font-bold">Grade {gradeNum} Results</h2>
+                                            <p className="text-gray-600">{gradeNum <= 3 ? 'Lower' : 'Upper'} Primary • {gradeSubjects[gradeNum].length} Subjects</p>
+                                        </div>
+                                        <button onClick={printGradeSheet}
+                                            className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 font-semibold shadow-lg">
+                                            🖨️ Print Grade Sheet
+                                        </button>
+                                    </div>
+
+                                    {/* Top 10 Students */}
+                                    {getTop10Students(gradeNum).length > 0 && (
+                                        <div className="mb-6 bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl border-2 border-yellow-300 shadow-lg">
+                                            <h3 className="text-xl font-bold mb-4 text-orange-700">🏆 Top 10 Students</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {getTop10Students(gradeNum).map((student, idx) => (
+                                                    <div key={student.studentId} className={`flex items-center justify-between p-3 rounded-lg ${
+                                                        idx === 0 ? 'bg-yellow-200 border-2 border-yellow-400' :
+                                                        idx === 1 ? 'bg-gray-200 border-2 border-gray-400' :
+                                                        idx === 2 ? 'bg-orange-200 border-2 border-orange-400' :
+                                                        'bg-white border border-gray-300'
+                                                    }`}>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className={`text-2xl font-bold ${
+                                                                idx === 0 ? 'student-rank-badge' : ''
+                                                            }`}>
+                                                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`}
+                                                            </span>
+                                                            <div>
+                                                                <div className="font-bold">{student.studentName}</div>
+                                                                <div className="text-sm text-gray-600">{student.regNo}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="font-bold text-lg">{student.average}%</div>
+                                                            <span className={`px-2 py-1 rounded text-sm font-bold ${getGradeColor(student.grade)}`}>
+                                                                {student.grade}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Marks Entry Table */}
+                                    <div className="bg-white rounded-xl shadow-lg border overflow-x-auto mb-6">
+                                        <table className="w-full">
+                                            <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                                                <tr>
+                                                    <th className="p-3 text-left">Rank</th>
+                                                    <th className="p-3 text-left">Reg No</th>
+                                                    <th className="p-3 text-left">Name</th>
+                                                    {gradeSubjects[gradeNum].map(s => <th key={s} className="p-3 text-center">{s}</th>)}
+                                                    <th className="p-3 text-center bg-blue-800">Total</th>
+                                                    <th className="p-3 text-center bg-blue-800">Avg</th>
+                                                    <th className="p-3 text-center bg-blue-800">Grade</th>
+                                                    <th className="p-3 text-center bg-blue-800">Print</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {students.filter(s => s.grade === gradeNum).map((student, idx) => {
+                                                    const gradeResults = getStudentResults(gradeNum);
+                                                    const result = gradeResults.find(r => r.studentId === student.id);
+                                                    const marks = result?.subjects || {};
+                                                    return (
+                                                        <tr key={student.id} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                                                            <td className="p-3 font-bold text-center">
+                                                                {result ? (
+                                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                                                        #{result.rank}
+                                                                    </span>
+                                                                ) : '-'}
+                                                            </td>
+                                                            <td className="p-3 font-mono">{student.regNo}</td>
+                                                            <td className="p-3 font-medium">{student.name}</td>
+                                                            {gradeSubjects[gradeNum].map(subject => (
+                                                                <td key={subject} className="p-2">
+                                                                    <input type="number" min="0" max="100" value={marks[subject] || ''}
+                                                                        onChange={(e) => updateMarks(gradeNum, student.id, subject, e.target.value)}
+                                                                        className="w-20 p-2 border rounded text-center focus:ring-2 focus:ring-blue-500"
+                                                                        placeholder="0" />
+                                                                </td>
+                                                            ))}
+                                                            <td className="p-3 text-center font-bold bg-blue-50">{result?.total || 0}</td>
+                                                            <td className="p-3 text-center font-bold bg-blue-50">{result?.average || '0.0'}</td>
+                                                            <td className="p-3 text-center">
+                                                                {result && (
+                                                                    <span className={`px-3 py-1 rounded-full font-bold border ${getGradeColor(result.grade)}`}>
+                                                                        {result.grade}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-3 text-center">
+                                                                {result && (
+                                                                    <button onClick={() => printStudentReport(gradeNum, student.id)}
+                                                                        className="bg-purple-100 text-purple-700 px-3 py-1 rounded hover:bg-purple-200 font-semibold">
+                                                                        🖨️
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Summary Table for Printing */}
+                                    {getStudentResults(gradeNum).length > 0 && (
+                                        <div className="bg-white rounded-xl shadow-lg border p-6">
+                                            <div className="print-only text-center mb-6 border-b-4 border-blue-600 pb-4">
+                                                {schoolInfo.logo && <img src={schoolInfo.logo} alt="Logo" className="h-24 mx-auto mb-3" />}
+                                                <h1 className="text-3xl font-bold">{schoolInfo.name}</h1>
+                                                <p className="text-sm text-gray-600">{schoolInfo.address}</p>
+                                                <p className="text-sm text-gray-600">{schoolInfo.phone} | {schoolInfo.email}</p>
+                                                <p className="text-lg font-semibold mt-2 text-blue-600">{schoolInfo.motto}</p>
+                                                <h2 className="text-2xl font-bold mt-4">Grade {gradeNum} Results - {schoolInfo.academicYear}</h2>
+                                            </div>
+                                            
+                                            <h3 className="text-xl font-bold mb-4 no-print">Grade {gradeNum} Summary (Print View)</h3>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-gray-800 text-white">
+                                                            <th className="border-2 border-gray-400 p-2">Rank</th>
+                                                            <th className="border-2 border-gray-400 p-2">Reg No</th>
+                                                            <th className="border-2 border-gray-400 p-2">Name</th>
+                                                            {gradeSubjects[gradeNum].map(s => <th key={s} className="border-2 border-gray-400 p-2">{s}</th>)}
+                                                            <th className="border-2 border-gray-400 p-2">Total</th>
+                                                            <th className="border-2 border-gray-400 p-2">Avg</th>
+                                                            <th className="border-2 border-gray-400 p-2">Grade</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {getStudentResults(gradeNum).map((r, idx) => (
+                                                            <tr key={r.studentId} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                                                                <td className="border-2 border-gray-400 p-2 font-bold text-center">{r.rank}</td>
+                                                                <td className="border-2 border-gray-400 p-2 font-mono">{r.regNo}</td>
+                                                                <td className="border-2 border-gray-400 p-2">{r.studentName}</td>
+                                                                {gradeSubjects[gradeNum].map(s => (
+                                                                    <td key={s} className="border-2 border-gray-400 p-2 text-center">{r.subjects[s]}</td>
+                                                                ))}
+                                                                <td className="border-2 border-gray-400 p-2 text-center font-bold">{r.total}</td>
+                                                                <td className="border-2 border-gray-400 p-2 text-center font-bold">{r.average}</td>
+                                                                <td className="border-2 border-gray-400 p-2 text-center">
+                                                                    <span className={`px-3 py-1 rounded-full font-bold border ${getGradeColor(r.grade)}`}>
+                                                                        {r.grade}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <div className="print-only mt-8 grid grid-cols-2 gap-8">
+                                                <div>
+                                                    <p className="mb-2">Class Teacher's Signature:</p>
+                                                    <div className="border-b-2 border-gray-400 h-12"></div>
+                                                </div>
+                                                <div>
+                                                    <p className="mb-2">Head Teacher's Signature:</p>
+                                                    <div className="border-b-2 border-gray-400 h-12"></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="print-only mt-6 text-center text-sm text-gray-600">
+                                                <p>Printed on: {new Date().toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('app'));
+    </script>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
